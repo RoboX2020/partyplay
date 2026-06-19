@@ -12,21 +12,67 @@ let games = [];
 let timerInt = null;
 let currentMode = null;
 
-socket.on("connect", () => socket.emit("host:create", { origin: window.location.origin }));
+/* ---------------- Connection status ---------------- */
+function setNet(visible, msg, bad) {
+  const b = $("netBanner");
+  b.classList.toggle("show", visible);
+  b.classList.toggle("bad", !!bad);
+  if (msg) $("netMsg").textContent = msg;
+}
+// Show "connecting" right away — important on cold starts (free hosting can
+// take ~30–60s to wake up), so the screen never looks silently broken.
+setNet(true, "Connecting to server…");
 
-socket.on("host:created", (data) => {
+socket.on("connect", () => {
+  setNet(false);
+  const code = sessionStorage.getItem("pp_host_code");
+  if (code) socket.emit("host:reattach", { code, origin: window.location.origin });
+  else socket.emit("host:create", { origin: window.location.origin });
+});
+socket.on("disconnect", () => setNet(true, "Connection lost — reconnecting…", true));
+socket.io.on("reconnect_attempt", () => setNet(true, "Reconnecting…", true));
+
+function applyRoomData(data) {
   $("roomCode").textContent = data.code;
   $("qr").src = data.qr || "";
-  $("joinUrl").textContent = data.joinUrl;
+  $("joinUrl").textContent = (data.joinUrl || "").replace(/^https?:\/\//, "");
+  sessionStorage.setItem("pp_host_code", data.code);
   games = data.games;
   renderGamePicker();
   renderPlayers(data.players);
+}
+
+socket.on("host:created", (data) => {
+  applyRoomData(data);
   show("lobby");
+});
+
+socket.on("host:reattached", (data) => {
+  applyRoomData(data);
+  if (data.state === "lobby" || data.state === "gameover") {
+    show("lobby");
+  } else {
+    // Game in progress — show current standings until the next round event
+    // re-renders the live stage.
+    $("resultRoundLabel").textContent = "Reconnected — game in progress";
+    $("resultReveal").innerHTML = "";
+    renderLeaderboard($("leaderboard"), data.leaderboard || []);
+    show("result");
+  }
+});
+
+socket.on("host:reattachFailed", () => {
+  sessionStorage.removeItem("pp_host_code");
+  socket.emit("host:create", { origin: window.location.origin });
 });
 
 socket.on("room:players", ({ players }) => renderPlayers(players));
 socket.on("host:error", ({ message }) => alert(message));
-socket.on("room:closed", ({ message }) => alert(message || "Room closed."));
+socket.on("room:closed", ({ message }) => {
+  sessionStorage.removeItem("pp_host_code");
+  alert(message || "Room closed.");
+  socket.emit("host:create", { origin: window.location.origin });
+});
 
 function renderPlayers(players) {
   const el = $("players");

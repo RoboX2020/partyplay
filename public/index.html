@@ -2,32 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PartyPlay — Live Party Games</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎉</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%234f7dff'/><text x='50' y='72' font-size='62' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>" />
 </head>
 <body>
   <div class="center-screen">
-    <h1 class="logo" style="font-size: clamp(3rem, 12vw, 6rem);">Party<span class="dot">Play</span> 🎉</h1>
-    <p class="tag">Host a live game night on the big screen. Players join instantly by scanning a QR code — no app install needed. Compete in fast, friendly mini-games!</p>
+    <h1 class="logo hero-title"><span class="mark">P</span>Party<span class="dot">Play</span></h1>
+    <p class="tag">Host a live game night on the big screen. Players join instantly by scanning a QR code — no app, no install. Compete in fast, friendly mini-games.</p>
 
     <div class="choices">
       <a class="card choice" href="/host">
         <div class="ico">🖥️</div>
-        <h3>Host a Game</h3>
-        <p>Open this on the TV or big screen. Get a room code &amp; QR for players to join.</p>
+        <h3>Host a game</h3>
+        <p>Open on a TV or laptop. Get a room code and QR for players to join.</p>
+        <span class="arrow">Start hosting →</span>
       </a>
       <a class="card choice" href="/play">
         <div class="ico">📱</div>
-        <h3>Join a Game</h3>
-        <p>On your phone — enter the room code or scan the host's QR code to play.</p>
+        <h3>Join a game</h3>
+        <p>On your phone — scan the host's QR code or type the room code.</p>
+        <span class="arrow">Join now →</span>
       </a>
     </div>
 
-    <p class="tag" style="font-size:.95rem; opacity:.7;">🧠 Trivia · ➗ Math Blitz · 🎨 Color Trap · ⚡ Reaction Rush · 👆 Tap Battle</p>
+    <div class="gamelist">
+      <span>🧠 Trivia</span>
+      <span>➗ Math Blitz</span>
+      <span>🎨 Color Trap</span>
+      <span>⚡ Reaction Rush</span>
+      <span>👆 Tap Battle</span>
+    </div>
   </div>
 </body>
 </html>

@@ -5,37 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PartyPlay — Host</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖥️</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%234f7dff'/><text x='50' y='72' font-size='62' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'>P</text></svg>" />
 </head>
 <body>
+  <div class="net-banner" id="netBanner"><span class="spin"></span><span id="netMsg">Connecting…</span></div>
   <canvas id="confetti"></canvas>
   <div class="wrap">
 
     <!-- ============ LOBBY ============ -->
     <section id="lobby">
       <div class="host-top">
-        <div class="logo">Party<span class="dot">Play</span></div>
+        <div class="logo"><span class="mark">P</span>Party<span class="dot">Play</span></div>
         <div class="codebox">
-          <div class="label">Room Code</div>
-          <div class="code" id="roomCode">····</div>
+          <span class="label">Room code</span>
+          <span class="code" id="roomCode">····</span>
         </div>
-        <div class="pill"><span id="playerCount">0</span> players joined</div>
+        <div class="pill"><b id="playerCount">0</b>&nbsp;players</div>
       </div>
 
       <div class="lobby-grid">
         <div class="card qr-card">
-          <img id="qr" alt="Join QR code" />
-          <div class="scan-hint">📱 Scan to join, or go to</div>
+          <div class="section-title">Scan to join</div>
+          <div class="qr-frame"><img id="qr" alt="Join QR code" /></div>
+          <div class="scan-hint">Point your phone camera at the code, or open</div>
           <div class="joinurl" id="joinUrl"></div>
         </div>
 
         <div>
           <div class="card" style="margin-bottom:20px;">
             <div class="players-head">
-              <h3>Players</h3>
-              <span class="pill" id="playerCount2">0</span>
+              <h3>Players in the room</h3>
+              <span class="pill"><b id="playerCount2">0</b>&nbsp;joined</span>
             </div>
             <div class="players" id="players">
               <div class="empty-hint">Waiting for players to scan the QR code…</div>
@@ -44,8 +47,8 @@
 
           <div class="card">
             <div class="players-head">
-              <h3>Pick a game</h3>
-              <button class="btn big" id="startBtn" disabled>Start Game ▶</button>
+              <h3>Choose a game</h3>
+              <button class="btn big" id="startBtn" disabled>Start game</button>
             </div>
             <div class="game-picker" id="gamePicker"></div>
           </div>
@@ -55,11 +58,11 @@
 
     <!-- ============ INTRO SPLASH ============ -->
     <section id="intro" class="hidden">
-      <div class="center-grow" style="min-height:90vh;">
-        <div id="introEmoji" style="font-size:6rem;"></div>
-        <h1 class="logo" id="introName" style="font-size:4rem;"></h1>
+      <div class="center-grow" style="min-height:88vh;">
+        <div id="introEmoji" style="font-size:4.5rem;"></div>
+        <h1 id="introName" style="font-size:clamp(2rem,6vw,3.4rem);"></h1>
         <p class="tag" id="introDesc"></p>
-        <div class="big-msg" id="introCountdown"></div>
+        <div class="big-msg" id="introCountdown" style="margin-top:10px;"></div>
       </div>
     </section>
 
@@ -82,7 +85,7 @@
       <div class="stage">
         <div class="stage-head">
           <div class="round-label" id="resultRoundLabel"></div>
-          <div class="pill">🏆 Live Leaderboard</div>
+          <div class="pill">Leaderboard</div>
           <div></div>
         </div>
         <div id="resultReveal" style="text-align:center; margin-bottom:18px;"></div>
@@ -92,13 +95,13 @@
 
     <!-- ============ GAME OVER ============ -->
     <section id="gameover" class="hidden">
-      <div class="center-grow" style="min-height:90vh;">
-        <div class="crown">👑</div>
-        <h1 class="logo" style="font-size:3.4rem;">We have a winner!</h1>
-        <div class="big-msg" id="winnerName" style="font-size:3rem;"></div>
+      <div class="center-grow" style="min-height:88vh;">
+        <div class="crown">🏆</div>
+        <h1 style="font-size:clamp(1.8rem,5vw,2.6rem);">We have a winner</h1>
+        <div class="big-msg" id="winnerName" style="font-size:clamp(1.6rem,4.5vw,2.4rem);"></div>
         <div class="podium" id="podium"></div>
-        <div class="leaderboard" id="finalBoard" style="max-width:560px;"></div>
-        <button class="btn big" id="playAgainBtn">Play Again 🔁</button>
+        <div class="leaderboard" id="finalBoard" style="max-width:520px;"></div>
+        <button class="btn big" id="playAgainBtn">Play again</button>
       </div>
     </section>
 

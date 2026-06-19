@@ -6,12 +6,23 @@ function show(id) {
 }
 
 let me = null; // { playerId, name, avatar, code }
-let lastJoin = null;
 let roundState = null;
+const stored = JSON.parse(sessionStorage.getItem("pp_player") || "null");
 
-// Prefill room code from the QR link (?room=ABCD).
+/* ---------------- Connection status ---------------- */
+function setNet(visible, msg, bad) {
+  const b = $("netBanner");
+  b.classList.toggle("show", visible);
+  b.classList.toggle("bad", !!bad);
+  if (msg) $("netMsg").textContent = msg;
+}
+setNet(true, "Connecting…");
+
+// Prefill room code from the QR link (?room=ABCD), or a stored session.
 const params = new URLSearchParams(location.search);
-if (params.get("room")) $("codeInput").value = params.get("room").toUpperCase();
+const prefill = (params.get("room") || stored?.code || "").toUpperCase();
+if (prefill) $("codeInput").value = prefill;
+if (stored?.name) $("nameInput").value = stored.name;
 
 $("codeInput").addEventListener("input", (e) => {
   e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -22,41 +33,51 @@ $("joinForm").addEventListener("submit", (e) => {
   const code = $("codeInput").value.trim().toUpperCase();
   const name = $("nameInput").value.trim();
   if (code.length < 4) return ($("joinErr").textContent = "Enter the 4-letter room code.");
-  if (!name) return ($("joinErr").textContent = "Pick a nickname!");
+  if (!name) return ($("joinErr").textContent = "Pick a nickname.");
   $("joinErr").textContent = "";
   $("joinBtn").disabled = true;
-  lastJoin = { code, name, playerId: null };
-  socket.emit("player:join", lastJoin);
+  socket.emit("player:join", { code, name, playerId: me?.playerId });
 });
 
-// Reconnect support within the session.
+// (Re)connect support: rejoin automatically after a drop or page refresh.
 socket.on("connect", () => {
-  if (lastJoin && me) socket.emit("player:join", { ...lastJoin, playerId: me.playerId });
+  setNet(false);
+  const s = me ? { code: me.code, name: me.name, playerId: me.playerId } : stored;
+  if (s && s.code && s.playerId) socket.emit("player:join", s);
 });
+socket.on("disconnect", () => setNet(true, "Connection lost — reconnecting…", true));
+socket.io.on("reconnect_attempt", () => setNet(true, "Reconnecting…", true));
+socket.on("host:paused", ({ message }) => setNet(true, message || "Host reconnecting…", true));
+socket.on("host:resumed", () => setNet(false));
 
 socket.on("player:joinError", ({ message }) => {
   $("joinBtn").disabled = false;
   $("joinErr").textContent = message;
+  // A stale stored session pointing at a dead room should not trap the user.
+  if (!me) { sessionStorage.removeItem("pp_player"); show("join"); }
 });
 
 socket.on("player:joined", (data) => {
   me = data;
-  lastJoin.playerId = data.playerId;
+  sessionStorage.setItem("pp_player", JSON.stringify({ code: data.code, name: data.name, playerId: data.playerId }));
   $("meAv").textContent = data.avatar;
   $("gAv").textContent = data.avatar;
   $("meName").textContent = data.name;
   $("gName").textContent = data.name;
   $("waitAv").textContent = data.avatar;
   $("meCode").textContent = data.code;
-  if (data.state === "lobby" || data.state === "gameover") show("wait");
-  else show("wait"); // mid-game joiners wait for the next round
+  // Lobby / between games → waiting screen. Mid-game joiners also wait for the
+  // next round; if a round is already showing we leave it untouched.
+  const onGameScreen = !$("game").classList.contains("hidden");
+  if (!onGameScreen) show("wait");
 });
 
 socket.on("room:closed", ({ message }) => {
+  sessionStorage.removeItem("pp_player");
+  me = null;
   alert(message || "The host left. Game over.");
   show("join");
   $("joinBtn").disabled = false;
-  me = null;
 });
 
 socket.on("lobby:return", () => {

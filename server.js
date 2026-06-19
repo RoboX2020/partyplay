@@ -234,6 +234,24 @@ function endGame(room) {
   room.game = null;
 }
 
+// Resolve the public base URL used for the join link + QR code.
+function resolveBaseUrl(origin) {
+  const sanitize = (u) => (u || "").replace(/\/+$/, "");
+  // Prefer (1) an explicit PUBLIC_URL env var (set in production), then
+  // (2) the origin of the host page itself (works on any deployed domain),
+  // and finally (3) the detected LAN address for local same-Wi-Fi play.
+  return sanitize(process.env.PUBLIC_URL) || sanitize(origin) || `http://${LAN_IP}:${PORT}`;
+}
+
+async function buildJoinPayload(room) {
+  const joinUrl = `${room.baseUrl}/play?room=${room.code}`;
+  let qr = null;
+  try {
+    qr = await QRCode.toDataURL(joinUrl, { width: 360, margin: 1, color: { dark: "#111827", light: "#ffffff" } });
+  } catch {}
+  return { joinUrl, qr };
+}
+
 /* ------------------------------------------------------------------ */
 /* Socket handlers                                                     */
 /* ------------------------------------------------------------------ */
@@ -245,8 +263,11 @@ io.on("connection", (socket) => {
     const room = {
       code,
       hostSocketId: socket.id,
+      hostConnected: true,
+      hostGraceTimer: null,
       hostRoom: `${code}:host`,
       playerRoom: `${code}:players`,
+      baseUrl: resolveBaseUrl(opts.origin),
       players: new Map(),
       state: "lobby",
       game: null,
@@ -262,26 +283,47 @@ io.on("connection", (socket) => {
     socket.data.role = "host";
     socket.data.roomCode = code;
 
-    // Prefer (1) an explicit PUBLIC_URL env var (set in production), then
-    // (2) the origin of the host page itself (works on any deployed domain),
-    // and finally (3) the detected LAN address for local same-Wi-Fi play.
-    const sanitize = (u) => (u || "").replace(/\/+$/, "");
-    const base =
-      sanitize(process.env.PUBLIC_URL) ||
-      sanitize(opts.origin) ||
-      `http://${LAN_IP}:${PORT}`;
-    const joinUrl = `${base}/play?room=${code}`;
-    let qr = null;
-    try {
-      qr = await QRCode.toDataURL(joinUrl, { width: 360, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } });
-    } catch {}
-
+    const { joinUrl, qr } = await buildJoinPayload(room);
     socket.emit("host:created", {
       code,
       joinUrl,
       qr,
       games: gameCatalog(),
       players: publicPlayers(room),
+    });
+  });
+
+  // Host page reloaded / reconnected: re-attach to its existing room so a
+  // transient network blip or refresh does not destroy an in-progress game.
+  socket.on("host:reattach", async ({ code, origin } = {}) => {
+    code = (code || "").toUpperCase().trim();
+    const room = rooms.get(code);
+    if (!room) {
+      socket.emit("host:reattachFailed");
+      return;
+    }
+    if (room.hostGraceTimer) {
+      clearTimeout(room.hostGraceTimer);
+      room.hostGraceTimer = null;
+    }
+    room.hostSocketId = socket.id;
+    room.hostConnected = true;
+    if (origin) room.baseUrl = resolveBaseUrl(origin);
+    socket.join(code);
+    socket.join(room.hostRoom);
+    socket.data.role = "host";
+    socket.data.roomCode = code;
+    io.to(room.playerRoom).emit("host:resumed");
+
+    const { joinUrl, qr } = await buildJoinPayload(room);
+    socket.emit("host:reattached", {
+      code,
+      joinUrl,
+      qr,
+      games: gameCatalog(),
+      players: publicPlayers(room),
+      state: room.state,
+      leaderboard: leaderboard(room),
     });
   });
 
@@ -305,8 +347,10 @@ io.on("connection", (socket) => {
   });
 
   // ---- PLAYER ----
-  socket.on("player:join", ({ room: code, name, playerId }) => {
-    code = (code || "").toUpperCase().trim();
+  socket.on("player:join", (payload = {}) => {
+    const { name, playerId } = payload;
+    // Accept the room code under either key for robustness.
+    const code = (payload.room || payload.code || "").toUpperCase().trim();
     const room = rooms.get(code);
     if (!room) {
       socket.emit("player:joinError", { message: "Room not found. Check the code." });
@@ -383,10 +427,18 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     if (socket.data.role === "host" && room.hostSocketId === socket.id) {
-      // Host left: tear down the room after a short grace period.
-      clearTimers(room);
-      io.to(room.code).emit("room:closed", { message: "Host disconnected." });
-      rooms.delete(code);
+      // Don't nuke the room on a transient blip (refresh, tab switch, flaky
+      // network). Give the host a grace window to reconnect via host:reattach.
+      room.hostConnected = false;
+      io.to(room.playerRoom).emit("host:paused", { message: "Host connection lost. Reconnecting…" });
+      if (room.hostGraceTimer) clearTimeout(room.hostGraceTimer);
+      room.hostGraceTimer = setTimeout(() => {
+        if (!room.hostConnected) {
+          clearTimers(room);
+          io.to(room.code).emit("room:closed", { message: "Host left the game." });
+          rooms.delete(code);
+        }
+      }, 60000);
       return;
     }
 
