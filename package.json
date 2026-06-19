@@ -1,0 +1,28 @@
+{
+  "name": "partyplay",
+  "version": "1.0.0",
+  "description": "PartyPlay - a Kahoot-style multiplayer party game system. Host on the big screen, players join with a QR code and compete in live mini-games.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "game",
+    "multiplayer",
+    "kahoot",
+    "party",
+    "socket.io",
+    "qrcode"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.5"
+  }
+}

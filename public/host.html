@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PartyPlay — Host</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖥️</text></svg>" />
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+  <div class="wrap">
+
+    <!-- ============ LOBBY ============ -->
+    <section id="lobby">
+      <div class="host-top">
+        <div class="logo">Party<span class="dot">Play</span></div>
+        <div class="codebox">
+          <div class="label">Room Code</div>
+          <div class="code" id="roomCode">····</div>
+        </div>
+        <div class="pill"><span id="playerCount">0</span> players joined</div>
+      </div>
+
+      <div class="lobby-grid">
+        <div class="card qr-card">
+          <img id="qr" alt="Join QR code" />
+          <div class="scan-hint">📱 Scan to join, or go to</div>
+          <div class="joinurl" id="joinUrl"></div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="players-head">
+              <h3>Players</h3>
+              <span class="pill" id="playerCount2">0</span>
+            </div>
+            <div class="players" id="players">
+              <div class="empty-hint">Waiting for players to scan the QR code…</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="players-head">
+              <h3>Pick a game</h3>
+              <button class="btn big" id="startBtn" disabled>Start Game ▶</button>
+            </div>
+            <div class="game-picker" id="gamePicker"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INTRO SPLASH ============ -->
+    <section id="intro" class="hidden">
+      <div class="center-grow" style="min-height:90vh;">
+        <div id="introEmoji" style="font-size:6rem;"></div>
+        <h1 class="logo" id="introName" style="font-size:4rem;"></h1>
+        <p class="tag" id="introDesc"></p>
+        <div class="big-msg" id="introCountdown"></div>
+      </div>
+    </section>
+
+    <!-- ============ GAMEPLAY ============ -->
+    <section id="play" class="hidden">
+      <div class="stage">
+        <div class="stage-head">
+          <div class="round-label" id="roundLabel">Round 1</div>
+          <div class="pill" id="gameNamePill"></div>
+          <div class="timer-ring" id="timer">15</div>
+        </div>
+        <div class="timerbar"><i id="timerFill"></i></div>
+        <div id="stageContent" class="center-grow"></div>
+        <div class="answers-count" id="answersCount"></div>
+      </div>
+    </section>
+
+    <!-- ============ ROUND RESULT ============ -->
+    <section id="result" class="hidden">
+      <div class="stage">
+        <div class="stage-head">
+          <div class="round-label" id="resultRoundLabel"></div>
+          <div class="pill">🏆 Live Leaderboard</div>
+          <div></div>
+        </div>
+        <div id="resultReveal" style="text-align:center; margin-bottom:18px;"></div>
+        <div class="leaderboard" id="leaderboard"></div>
+      </div>
+    </section>
+
+    <!-- ============ GAME OVER ============ -->
+    <section id="gameover" class="hidden">
+      <div class="center-grow" style="min-height:90vh;">
+        <div class="crown">👑</div>
+        <h1 class="logo" style="font-size:3.4rem;">We have a winner!</h1>
+        <div class="big-msg" id="winnerName" style="font-size:3rem;"></div>
+        <div class="podium" id="podium"></div>
+        <div class="leaderboard" id="finalBoard" style="max-width:560px;"></div>
+        <button class="btn big" id="playAgainBtn">Play Again 🔁</button>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/confetti.js"></script>
+  <script src="/js/host.js"></script>
+</body>
+</html>

@@ -1,0 +1,408 @@
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import QRCode from "qrcode";
+import os from "os";
+import path from "path";
+import { fileURLToPath } from "url";
+import { GAMES, getGame, gameCatalog, shuffle } from "./src/games.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = process.env.PORT || 3000;
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(express.static(path.join(__dirname, "public")));
+
+// Friendly routes.
+app.get("/host", (_req, res) => res.sendFile(path.join(__dirname, "public", "host.html")));
+app.get("/play", (_req, res) => res.sendFile(path.join(__dirname, "public", "play.html")));
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+// The LAN address so players on the same Wi-Fi can scan & connect.
+function getLanIp() {
+  try {
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name] || []) {
+        if (iface.family === "IPv4" && !iface.internal) return iface.address;
+      }
+    }
+  } catch {
+    // Some sandboxed environments block interface enumeration; fall back.
+  }
+  return process.env.HOST_IP || "localhost";
+}
+const LAN_IP = getLanIp();
+
+const AVATARS = ["🦊", "🐼", "🐸", "🦁", "🐧", "🐙", "🦄", "🐝", "🐲", "🦉", "🐬", "🦖", "🐳", "🦋", "🐢", "🦜"];
+
+const rooms = new Map(); // code -> Room
+
+function makeRoomCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no easily-confused chars
+  let code;
+  do {
+    code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  } while (rooms.has(code));
+  return code;
+}
+
+function publicPlayers(room) {
+  return [...room.players.values()].map((p) => ({
+    id: p.id,
+    name: p.name,
+    avatar: p.avatar,
+    score: p.score,
+    connected: p.connected,
+  }));
+}
+
+function leaderboard(room) {
+  return publicPlayers(room).sort((a, b) => b.score - a.score);
+}
+
+function clearTimers(room) {
+  for (const t of room.timers) clearTimeout(t);
+  room.timers = [];
+}
+
+/* ------------------------------------------------------------------ */
+/* Game orchestration                                                  */
+/* ------------------------------------------------------------------ */
+
+function startGame(room, gameId) {
+  const game = getGame(gameId);
+  if (!game) return;
+  room.game = game;
+  room.roundIndex = -1;
+  room.state = "playing";
+  // Per-game shuffled deck of question indices (used by trivia).
+  room.deck = shuffle([...Array(20).keys()]);
+  // Reset scores for a fresh game.
+  for (const p of room.players.values()) p.score = 0;
+
+  io.to(room.code).emit("game:intro", {
+    game: { id: game.id, name: game.name, emoji: game.emoji, color: game.color, description: game.description },
+    rounds: game.rounds,
+    players: publicPlayers(room),
+  });
+
+  room.timers.push(setTimeout(() => nextRound(room), 3200));
+}
+
+function nextRound(room) {
+  const game = room.game;
+  room.roundIndex += 1;
+  if (room.roundIndex >= game.rounds) return endGame(room);
+
+  const roundDef = game.prepare(room.roundIndex, room.deck);
+  room.roundDef = roundDef;
+  room.submissions = new Map();
+  room.state = "playing";
+  room.roundStart = Date.now();
+  room.goAt = null;
+
+  const common = {
+    gameId: game.id,
+    mode: game.mode,
+    round: room.roundIndex + 1,
+    totalRounds: game.rounds,
+    duration: game.roundDuration,
+  };
+
+  // Host gets the full host view; players get the player view.
+  io.to(room.hostRoom).emit("round:start", { ...common, view: game.hostView(roundDef) });
+
+  if (game.mode === "reaction") {
+    // Tell players to get ready; reveal GO after a random delay.
+    io.to(room.playerRoom).emit("round:start", { ...common, view: {}, phase: "wait" });
+    room.timers.push(
+      setTimeout(() => {
+        room.goAt = Date.now();
+        io.to(room.code).emit("round:go", { round: room.roundIndex + 1 });
+        // End the round a fixed window after GO.
+        room.timers.push(setTimeout(() => finishRound(room), game.roundDuration));
+      }, roundDef.goDelay)
+    );
+  } else {
+    io.to(room.playerRoom).emit("round:start", { ...common, view: game.playerView(roundDef) });
+    room.timers.push(setTimeout(() => finishRound(room), game.roundDuration));
+  }
+}
+
+function maybeFinishEarly(room) {
+  // Quiz modes can end the moment everyone connected has answered.
+  if (!room.game || room.game.mode === "tap" || room.game.mode === "reaction") return;
+  const active = [...room.players.values()].filter((p) => p.connected);
+  if (active.length > 0 && active.every((p) => room.submissions.has(p.id))) {
+    clearTimers(room);
+    room.timers.push(setTimeout(() => finishRound(room), 600));
+  }
+}
+
+function finishRound(room) {
+  if (room.state === "results") return;
+  clearTimers(room);
+  room.state = "results";
+  const game = room.game;
+  const roundDef = room.roundDef;
+
+  const roundResults = [];
+  for (const p of room.players.values()) {
+    const sub = room.submissions.get(p.id);
+    let result;
+    if (!sub) {
+      result = { correct: false, points: 0, answered: false };
+    } else {
+      result = { ...game.score(roundDef, sub), answered: true, raw: sub };
+    }
+    p.score += result.points;
+    roundResults.push({ playerId: p.id, ...result });
+
+    // Personalised result to each player.
+    const sock = io.sockets.sockets.get(p.socketId);
+    if (sock) {
+      sock.emit("round:result", {
+        correct: result.correct,
+        points: result.points,
+        totalScore: p.score,
+        rank: 0, // filled below
+        reactionMs: result.reactionMs ?? null,
+        taps: result.raw?.taps ?? null,
+      });
+    }
+  }
+
+  const board = leaderboard(room);
+  const rankById = new Map(board.map((p, i) => [p.id, i + 1]));
+  // Send each player their rank.
+  for (const p of room.players.values()) {
+    const sock = io.sockets.sockets.get(p.socketId);
+    if (sock) sock.emit("round:rank", { rank: rankById.get(p.id), total: board.length });
+  }
+
+  // Host gets full round breakdown + leaderboard.
+  io.to(room.hostRoom).emit("round:result", {
+    round: room.roundIndex + 1,
+    totalRounds: game.rounds,
+    mode: game.mode,
+    reveal: revealForHost(game, roundDef, roundResults),
+    leaderboard: board,
+  });
+
+  const isLast = room.roundIndex + 1 >= game.rounds;
+  room.timers.push(setTimeout(() => (isLast ? endGame(room) : nextRound(room)), 4500));
+}
+
+function revealForHost(game, roundDef, roundResults) {
+  const answered = roundResults.filter((r) => r.answered);
+  const base = {
+    correctCount: roundResults.filter((r) => r.correct).length,
+    answeredCount: answered.length,
+  };
+  if (game.mode === "quiz") {
+    // Distribution of answers across options.
+    const dist = (roundDef.options || []).map(() => 0);
+    for (const r of roundResults) {
+      if (r.answered && typeof r.raw?.answer === "number" && dist[r.raw.answer] != null) dist[r.raw.answer] += 1;
+    }
+    return { ...base, correctIndex: roundDef.correctIndex, distribution: dist };
+  }
+  if (game.mode === "reaction") {
+    const times = answered.map((r) => r.reactionMs).filter((t) => typeof t === "number");
+    return { ...base, bestMs: times.length ? Math.min(...times) : null };
+  }
+  if (game.mode === "tap") {
+    const taps = answered.map((r) => r.raw?.taps || 0);
+    return { ...base, bestTaps: taps.length ? Math.max(...taps) : 0 };
+  }
+  return base;
+}
+
+function endGame(room) {
+  clearTimers(room);
+  room.state = "gameover";
+  const board = leaderboard(room);
+  const winner = board[0] || null;
+  io.to(room.code).emit("game:over", { winner, leaderboard: board });
+  room.game = null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Socket handlers                                                     */
+/* ------------------------------------------------------------------ */
+
+io.on("connection", (socket) => {
+  // ---- HOST ----
+  socket.on("host:create", async (opts = {}) => {
+    const code = makeRoomCode();
+    const room = {
+      code,
+      hostSocketId: socket.id,
+      hostRoom: `${code}:host`,
+      playerRoom: `${code}:players`,
+      players: new Map(),
+      state: "lobby",
+      game: null,
+      roundIndex: -1,
+      roundDef: null,
+      submissions: new Map(),
+      timers: [],
+      deck: [],
+    };
+    rooms.set(code, room);
+    socket.join(code);
+    socket.join(room.hostRoom);
+    socket.data.role = "host";
+    socket.data.roomCode = code;
+
+    // Prefer (1) an explicit PUBLIC_URL env var (set in production), then
+    // (2) the origin of the host page itself (works on any deployed domain),
+    // and finally (3) the detected LAN address for local same-Wi-Fi play.
+    const sanitize = (u) => (u || "").replace(/\/+$/, "");
+    const base =
+      sanitize(process.env.PUBLIC_URL) ||
+      sanitize(opts.origin) ||
+      `http://${LAN_IP}:${PORT}`;
+    const joinUrl = `${base}/play?room=${code}`;
+    let qr = null;
+    try {
+      qr = await QRCode.toDataURL(joinUrl, { width: 360, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } });
+    } catch {}
+
+    socket.emit("host:created", {
+      code,
+      joinUrl,
+      qr,
+      games: gameCatalog(),
+      players: publicPlayers(room),
+    });
+  });
+
+  socket.on("host:start", ({ gameId }) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room || room.hostSocketId !== socket.id) return;
+    if (room.players.size === 0) {
+      socket.emit("host:error", { message: "Need at least one player to start." });
+      return;
+    }
+    startGame(room, gameId);
+  });
+
+  socket.on("host:playAgain", () => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room || room.hostSocketId !== socket.id) return;
+    clearTimers(room);
+    room.state = "lobby";
+    room.game = null;
+    io.to(room.code).emit("lobby:return", { players: publicPlayers(room), games: gameCatalog() });
+  });
+
+  // ---- PLAYER ----
+  socket.on("player:join", ({ room: code, name, playerId }) => {
+    code = (code || "").toUpperCase().trim();
+    const room = rooms.get(code);
+    if (!room) {
+      socket.emit("player:joinError", { message: "Room not found. Check the code." });
+      return;
+    }
+
+    // Reconnect path: same playerId rejoining.
+    let player = playerId ? room.players.get(playerId) : null;
+    if (player) {
+      player.socketId = socket.id;
+      player.connected = true;
+    } else {
+      const cleanName = (name || "").trim().slice(0, 14) || "Player";
+      const id = `p_${Math.random().toString(36).slice(2, 9)}`;
+      const usedAvatars = new Set([...room.players.values()].map((p) => p.avatar));
+      const avatar = AVATARS.find((a) => !usedAvatars.has(a)) || AVATARS[Math.floor(Math.random() * AVATARS.length)];
+      player = { id, name: cleanName, avatar, score: 0, connected: true, socketId: socket.id };
+      room.players.set(id, player);
+    }
+
+    socket.join(code);
+    socket.join(room.playerRoom);
+    socket.data.role = "player";
+    socket.data.roomCode = code;
+    socket.data.playerId = player.id;
+
+    socket.emit("player:joined", {
+      playerId: player.id,
+      name: player.name,
+      avatar: player.avatar,
+      code,
+      state: room.state,
+    });
+
+    io.to(room.code).emit("room:players", { players: publicPlayers(room) });
+  });
+
+  socket.on("player:submit", (payload) => {
+    const room = rooms.get(socket.data.roomCode);
+    if (!room || room.state !== "playing" || !room.game) return;
+    const player = room.players.get(socket.data.playerId);
+    if (!player) return;
+    if (room.submissions.has(player.id)) return; // one submission per round (quiz/reaction)
+
+    const game = room.game;
+    let sub;
+    if (game.mode === "quiz") {
+      sub = { answer: payload.answer, elapsedMs: Date.now() - room.roundStart };
+    } else if (game.mode === "reaction") {
+      if (!room.goAt) {
+        sub = { early: true };
+      } else {
+        sub = { reactionMs: Math.max(0, Date.now() - room.goAt) };
+      }
+    } else if (game.mode === "tap") {
+      // Tap submissions stream in; keep latest count, allow updates.
+      const existing = room.submissions.get(player.id);
+      sub = { taps: Math.max(payload.taps || 0, existing?.taps || 0) };
+      room.submissions.set(player.id, sub);
+      return; // don't lock; tap count updates until round ends
+    }
+    room.submissions.set(player.id, sub);
+
+    socket.emit("submit:ack", { mode: game.mode });
+    const activeCount = [...room.players.values()].filter((p) => p.connected).length;
+    io.to(room.hostRoom).emit("round:answered", { count: room.submissions.size, total: activeCount });
+    maybeFinishEarly(room);
+  });
+
+  // ---- DISCONNECT ----
+  socket.on("disconnect", () => {
+    const code = socket.data.roomCode;
+    const room = rooms.get(code);
+    if (!room) return;
+
+    if (socket.data.role === "host" && room.hostSocketId === socket.id) {
+      // Host left: tear down the room after a short grace period.
+      clearTimers(room);
+      io.to(room.code).emit("room:closed", { message: "Host disconnected." });
+      rooms.delete(code);
+      return;
+    }
+
+    if (socket.data.role === "player") {
+      const player = room.players.get(socket.data.playerId);
+      if (player) {
+        player.connected = false;
+        io.to(room.code).emit("room:players", { players: publicPlayers(room) });
+      }
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`\n  PartyPlay is live!`);
+  console.log(`  Host screen : http://localhost:${PORT}`);
+  console.log(`  On your LAN : http://${LAN_IP}:${PORT}`);
+  console.log(`  Players join : http://${LAN_IP}:${PORT}/play\n`);
+});

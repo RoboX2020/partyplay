@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PartyPlay — Join</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>" />
+</head>
+<body class="player-body">
+  <canvas id="confetti"></canvas>
+
+  <!-- ============ JOIN ============ -->
+  <section id="join" class="p-wrap" style="justify-content:center; align-items:center; gap:24px;">
+    <h1 class="logo" style="font-size:3rem;">Party<span class="dot">Play</span></h1>
+    <form class="join-form" id="joinForm">
+      <div class="field">
+        <label for="codeInput">Room Code</label>
+        <input class="code-input" id="codeInput" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD" />
+      </div>
+      <div class="field">
+        <label for="nameInput">Your Nickname</label>
+        <input id="nameInput" maxlength="14" autocomplete="off" placeholder="e.g. Rocket" />
+      </div>
+      <div class="err" id="joinErr"></div>
+      <button type="submit" class="btn big" id="joinBtn">Join Game 🚀</button>
+    </form>
+  </section>
+
+  <!-- ============ WAITING ============ -->
+  <section id="wait" class="p-wrap hidden">
+    <div class="p-head">
+      <div class="me"><span class="av" id="meAv"></span><span id="meName"></span></div>
+      <div class="score">Room <span id="meCode"></span></div>
+    </div>
+    <div class="waiting">
+      <div class="av-big" id="waitAv"></div>
+      <h2>You're in!</h2>
+      <p class="tag"><span class="dots">Waiting for the host to start</span></p>
+    </div>
+  </section>
+
+  <!-- ============ GAMEPLAY ============ -->
+  <section id="game" class="p-wrap hidden">
+    <div class="p-head">
+      <div class="me"><span class="av" id="gAv"></span><span id="gName"></span></div>
+      <div class="score">⭐ <span id="gScore">0</span></div>
+    </div>
+    <div class="p-stage" id="pStage"></div>
+  </section>
+
+  <!-- ============ GAME OVER ============ -->
+  <section id="pGameover" class="p-wrap hidden">
+    <div class="waiting">
+      <div class="av-big" id="overAv"></div>
+      <h2 id="overTitle"></h2>
+      <div class="big-msg" id="overRank" style="font-size:2.4rem;"></div>
+      <p class="tag" id="overScore"></p>
+    </div>
+  </section>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/confetti.js"></script>
+  <script src="/js/play.js"></script>
+</body>
+</html>
