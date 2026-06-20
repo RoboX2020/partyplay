@@ -84,23 +84,58 @@ socket.on("lobby:return", () => {
   if (me) show("wait");
 });
 
-socket.on("game:intro", ({ game }) => {
+let winTarget = 0;
+socket.on("game:intro", ({ game, winTarget: t }) => {
+  winTarget = t || 0;
   show("game");
   $("pStage").innerHTML = `<div class="feedback"><div class="icon">${game.emoji}</div>
     <h2>${game.name}</h2><p class="tag">${game.description}</p>
-    <div class="rank-pill">Get ready…</div></div>`;
+    ${winTarget ? `<div class="rank-pill">🎯 Reach ${winTarget} pts to win</div>` : `<div class="rank-pill">Get ready…</div>`}</div>`;
 });
+
+function stopArcade() {
+  if (roundState && roundState.arcade) {
+    try { roundState.arcade.stop(); } catch {}
+    roundState.arcade = null;
+  }
+}
 
 /* ---------------- Round start ---------------- */
 socket.on("round:start", (data) => {
   show("game");
+  stopArcade();
   roundState = { mode: data.mode, gameId: data.gameId, submitted: false, taps: 0, tapTimer: null };
   const stage = $("pStage");
 
   if (data.mode === "quiz") renderQuiz(stage, data);
   else if (data.mode === "reaction") renderReactionWait(stage);
   else if (data.mode === "tap") renderTap(stage, data.duration);
+  else if (data.mode === "arcade") renderArcade(stage, data);
 });
+
+/* ---------------- Arcade rendering ---------------- */
+function renderArcade(stage, data) {
+  stage.innerHTML = `<canvas id="arcadeCanvas" style="flex:1; width:100%; min-height:60vh; border-radius:12px; display:block; background:#0b0f17; touch-action:none;"></canvas>`;
+  const canvas = $("arcadeCanvas");
+  let lastEmit = 0;
+  roundState.arcadeScore = 0;
+  // Wait a frame so the canvas has its final layout size before we start.
+  requestAnimationFrame(() => {
+    roundState.arcade = window.Arcade.start(data.gameId, canvas, {
+      duration: data.duration,
+      onScore: (s) => {
+        roundState.arcadeScore = s;
+        const now = Date.now();
+        if (now - lastEmit > 250) { lastEmit = now; socket.emit("player:submit", { score: s }); }
+      },
+      onEnd: (s) => {
+        roundState.arcadeScore = s;
+        socket.emit("player:submit", { score: s, done: true });
+        setTimeout(() => waitingForOthers(), 700);
+      },
+    });
+  });
+}
 
 socket.on("round:go", () => {
   if (!roundState || roundState.mode !== "reaction" || roundState.submitted) return;
@@ -194,7 +229,11 @@ function renderTap(stage, duration) {
 
 function waitingForOthers() {
   const stage = $("pStage");
-  if (roundState && roundState.mode === "tap") {
+  if (roundState && roundState.mode === "arcade") {
+    stage.innerHTML = `<div class="feedback"><div class="icon">🎮</div>
+      <div class="pts">${roundState.arcadeScore || 0}</div>
+      <p class="tag"><span class="dots">Run over — waiting for others</span></p></div>`;
+  } else if (roundState && roundState.mode === "tap") {
     stage.innerHTML = `<div class="feedback"><div class="icon">👆</div>
       <div class="pts">${roundState.taps} taps!</div>
       <p class="tag"><span class="dots">Waiting for results</span></p></div>`;
@@ -209,6 +248,7 @@ function waitingForOthers() {
 let pendingResult = null;
 socket.on("round:result", (r) => {
   pendingResult = r;
+  stopArcade();
   $("gScore").textContent = r.totalScore;
 });
 
@@ -223,32 +263,44 @@ socket.on("round:rank", ({ rank, total }) => {
     else { icon = "⚡"; headline = `${r.reactionMs} ms`; }
   } else if (roundState && roundState.mode === "tap") {
     icon = "👆"; headline = `${r.taps} taps`;
+  } else if (roundState && roundState.mode === "arcade") {
+    icon = "🎮"; headline = `${r.score ?? 0} this round`;
   }
   const rankTxt = rank === 1 ? "🥇 1st place!" : rank === 2 ? "🥈 2nd place" : rank === 3 ? "🥉 3rd place" : `#${rank} of ${total}`;
+  const onTrack = winTarget ? (r.totalScore >= winTarget ? `<p class="tag" style="color:var(--good);">🎯 Target reached!</p>` : `<p class="tag">🎯 ${Math.max(0, winTarget - r.totalScore)} pts to target</p>`) : "";
   stage.innerHTML = `<div class="feedback ${good ? "good" : "bad"} fade-in">
     <div class="icon">${icon}</div>
     <h2>${headline}</h2>
     <div class="pts">+${r.points || 0}</div>
     <div class="rank-pill">${rankTxt}</div>
-    <p class="tag">Total: ${r.totalScore} pts</p></div>`;
+    <p class="tag">Total: ${r.totalScore} pts</p>${onTrack}</div>`;
 });
 
 /* ---------------- Game over ---------------- */
-socket.on("game:over", ({ winner, leaderboard }) => {
+socket.on("game:over", ({ winner, leaderboard, qualified, target }) => {
   show("pGameover");
+  stopArcade();
   const myRank = leaderboard.findIndex((p) => p.id === me?.playerId) + 1;
   const myEntry = leaderboard.find((p) => p.id === me?.playerId);
-  const iWon = winner && me && winner.id === me.playerId;
+  const myScore = myEntry ? myEntry.score : 0;
+  const iWon = qualified && winner && me && winner.id === me.playerId;
   $("overAv").textContent = me?.avatar || "🎉";
+
   if (iWon) {
     $("overTitle").textContent = "👑 You WON!";
     $("overRank").textContent = "Champion!";
+    $("overScore").textContent = `${myScore} points · you cleared the ${target} target`;
     if (window.confettiBurst) { window.confettiBurst(220); setTimeout(() => window.confettiBurst(160), 900); }
-  } else {
-    $("overTitle").textContent = "Game Over!";
+  } else if (qualified && winner) {
+    $("overTitle").textContent = "Game Over";
     $("overRank").textContent = myRank === 2 ? "🥈 2nd place" : myRank === 3 ? "🥉 3rd place" : `#${myRank} of ${leaderboard.length}`;
+    $("overScore").textContent = `${myScore} points · Winner: ${winner.avatar} ${winner.name}`;
+  } else {
+    // Nobody crossed the target.
+    $("overTitle").textContent = "So close!";
+    $("overRank").textContent = `#${myRank} of ${leaderboard.length}`;
+    $("overScore").textContent = `Nobody reached the ${target} pt target. You scored ${myScore}.`;
   }
-  $("overScore").textContent = `${myEntry ? myEntry.score : 0} points · Winner: ${winner ? winner.name : "—"}`;
 });
 
 function escapeHtml(s) {

@@ -90,6 +90,8 @@ function startGame(room, gameId) {
   io.to(room.code).emit("game:intro", {
     game: { id: game.id, name: game.name, emoji: game.emoji, color: game.color, description: game.description },
     rounds: game.rounds,
+    mode: game.mode,
+    winTarget: game.winTarget || 0,
     players: publicPlayers(room),
   });
 
@@ -104,6 +106,7 @@ function nextRound(room) {
   const roundDef = game.prepare(room.roundIndex, room.deck);
   room.roundDef = roundDef;
   room.submissions = new Map();
+  room.done = new Set();
   room.state = "playing";
   room.roundStart = Date.now();
   room.goAt = null;
@@ -132,15 +135,26 @@ function nextRound(room) {
     );
   } else {
     io.to(room.playerRoom).emit("round:start", { ...common, view: game.playerView(roundDef) });
-    room.timers.push(setTimeout(() => finishRound(room), game.roundDuration));
+    // Arcade runs locally on each phone; give a little buffer past the play
+    // window for final scores to arrive before we force the round closed.
+    const hardLimit = game.mode === "arcade" ? game.roundDuration + 2500 : game.roundDuration;
+    room.timers.push(setTimeout(() => finishRound(room), hardLimit));
   }
 }
 
 function maybeFinishEarly(room) {
-  // Quiz modes can end the moment everyone connected has answered.
-  if (!room.game || room.game.mode === "tap" || room.game.mode === "reaction") return;
+  if (!room.game) return;
   const active = [...room.players.values()].filter((p) => p.connected);
-  if (active.length > 0 && active.every((p) => room.submissions.has(p.id))) {
+  if (active.length === 0) return;
+  const mode = room.game.mode;
+  let done = false;
+  if (mode === "quiz") {
+    done = active.every((p) => room.submissions.has(p.id));
+  } else if (mode === "arcade") {
+    // Everyone has crashed/finished their run early → no need to wait.
+    done = active.every((p) => room.done.has(p.id));
+  }
+  if (done) {
     clearTimers(room);
     room.timers.push(setTimeout(() => finishRound(room), 600));
   }
@@ -175,6 +189,7 @@ function finishRound(room) {
         rank: 0, // filled below
         reactionMs: result.reactionMs ?? null,
         taps: result.raw?.taps ?? null,
+        score: result.raw?.score ?? null,
       });
     }
   }
@@ -222,6 +237,10 @@ function revealForHost(game, roundDef, roundResults) {
     const taps = answered.map((r) => r.raw?.taps || 0);
     return { ...base, bestTaps: taps.length ? Math.max(...taps) : 0 };
   }
+  if (game.mode === "arcade") {
+    const scores = answered.map((r) => r.raw?.score || 0);
+    return { ...base, bestScore: scores.length ? Math.max(...scores) : 0 };
+  }
   return base;
 }
 
@@ -229,8 +248,18 @@ function endGame(room) {
   clearTimers(room);
   room.state = "gameover";
   const board = leaderboard(room);
-  const winner = board[0] || null;
-  io.to(room.code).emit("game:over", { winner, leaderboard: board });
+  const target = room.game?.winTarget || 0;
+  const top = board[0] || null;
+  // A winner must finish first AND clear the qualifying target score.
+  const qualified = !!(top && top.score >= target);
+  io.to(room.code).emit("game:over", {
+    winner: qualified ? top : null,
+    qualified,
+    target,
+    topPlayer: top,
+    leaderboard: board,
+  });
+  room.state = "gameover";
   room.game = null;
 }
 
@@ -393,9 +422,12 @@ io.on("connection", (socket) => {
     if (!room || room.state !== "playing" || !room.game) return;
     const player = room.players.get(socket.data.playerId);
     if (!player) return;
-    if (room.submissions.has(player.id)) return; // one submission per round (quiz/reaction)
 
     const game = room.game;
+    // Quiz/reaction lock after a single answer. Tap/arcade stream updates and
+    // must keep accepting submissions until the round ends.
+    if ((game.mode === "quiz" || game.mode === "reaction") && room.submissions.has(player.id)) return;
+
     let sub;
     if (game.mode === "quiz") {
       sub = { answer: payload.answer, elapsedMs: Date.now() - room.roundStart };
@@ -411,6 +443,18 @@ io.on("connection", (socket) => {
       sub = { taps: Math.max(payload.taps || 0, existing?.taps || 0) };
       room.submissions.set(player.id, sub);
       return; // don't lock; tap count updates until round ends
+    } else if (game.mode === "arcade") {
+      // Arcade score streams in; keep the best, mark "done" when the run ends.
+      const existing = room.submissions.get(player.id);
+      const best = Math.max(payload.score || 0, existing?.score || 0);
+      room.submissions.set(player.id, { score: best });
+      if (payload.done) {
+        room.done.add(player.id);
+        const activeCount = [...room.players.values()].filter((p) => p.connected).length;
+        io.to(room.hostRoom).emit("round:answered", { count: room.done.size, total: activeCount, label: "finished" });
+        maybeFinishEarly(room);
+      }
+      return;
     }
     room.submissions.set(player.id, sub);
 

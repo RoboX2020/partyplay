@@ -127,8 +127,10 @@ socket.on("lobby:return", ({ players, games: g }) => {
 });
 
 /* ---------------- Intro splash ---------------- */
-socket.on("game:intro", ({ game, rounds }) => {
+let currentGame = null;
+socket.on("game:intro", ({ game, rounds, winTarget }) => {
   currentMode = null;
+  currentGame = { ...game, winTarget: winTarget || 0 };
   $("introEmoji").textContent = game.emoji;
   $("introName").textContent = game.name;
   $("introDesc").textContent = game.description;
@@ -156,7 +158,7 @@ socket.on("round:start", (data) => {
   currentMode = data.mode;
   show("play");
   $("roundLabel").textContent = `Round ${data.round} of ${data.totalRounds}`;
-  $("answersCount").textContent = "";
+  $("answersCount").textContent = targetLine();
   stopTimer();
 
   const content = $("stageContent");
@@ -172,12 +174,23 @@ socket.on("round:start", (data) => {
     content.innerHTML = `<div class="big-msg" id="tapMsg">👆 TAP! TAP! TAP!</div>
       <p class="tag">Players are tapping as fast as they can!</p>`;
     startTimer(data.duration);
+  } else if (data.mode === "arcade") {
+    const g = currentGame || {};
+    content.innerHTML = `<div style="font-size:5rem;">${g.emoji || "🎮"}</div>
+      <div class="big-msg">${escapeHtml(g.name || "Playing")} — live!</div>
+      <p class="tag">Everyone's playing on their phones. ${g.winTarget ? `First past <b>${g.winTarget}</b> total points qualifies to win.` : ""}</p>`;
+    startTimer(data.duration);
   }
 });
 
-socket.on("round:answered", ({ count, total }) => {
+function targetLine() {
+  return currentGame && currentGame.winTarget ? `🎯 Target to win: ${currentGame.winTarget} pts` : "";
+}
+
+socket.on("round:answered", ({ count, total, label }) => {
   if (currentMode === "tap") return;
-  $("answersCount").textContent = `✋ ${count} / ${total} answered`;
+  const word = label === "finished" ? "finished" : "answered";
+  $("answersCount").textContent = `✋ ${count} / ${total} ${word}`;
 });
 
 socket.on("round:go", () => {
@@ -241,6 +254,9 @@ socket.on("round:result", ({ round, totalRounds, mode, reveal, leaderboard }) =>
     }</div>`;
   } else if (mode === "tap") {
     rev.innerHTML = `<div class="big-msg" style="font-size:2.4rem;">👆 Most taps: ${reveal.bestTaps}</div>`;
+  } else if (mode === "arcade") {
+    rev.innerHTML = `<div class="big-msg" style="font-size:2.4rem;">${currentGame?.emoji || "🎮"} Best this round: ${reveal.bestScore}</div>
+      ${currentGame?.winTarget ? `<p class="tag" style="margin-top:8px;">🎯 ${currentGame.winTarget} total points needed to win</p>` : ""}`;
   }
 
   renderLeaderboard($("leaderboard"), leaderboard);
@@ -261,15 +277,27 @@ function renderLeaderboard(el, board) {
 }
 
 /* ---------------- Game over ---------------- */
-socket.on("game:over", ({ winner, leaderboard }) => {
+socket.on("game:over", ({ winner, leaderboard, qualified, target, topPlayer }) => {
   show("gameover");
-  $("winnerName").textContent = winner ? `${winner.avatar} ${winner.name} — ${winner.score} pts` : "—";
   renderPodium(leaderboard);
   renderLeaderboard($("finalBoard"), leaderboard);
-  if (window.confettiBurst) {
-    window.confettiBurst(220);
-    setTimeout(() => window.confettiBurst(160), 800);
-    setTimeout(() => window.confettiBurst(160), 1700);
+
+  if (qualified && winner) {
+    $("gameoverCrown").textContent = "🏆";
+    $("gameoverTitle").textContent = "We have a winner";
+    $("winnerName").textContent = `${winner.avatar} ${winner.name} — ${winner.score} pts`;
+    if (window.confettiBurst) {
+      window.confettiBurst(220);
+      setTimeout(() => window.confettiBurst(160), 800);
+      setTimeout(() => window.confettiBurst(160), 1700);
+    }
+  } else {
+    // Nobody crossed the qualifying target.
+    $("gameoverCrown").textContent = "🎯";
+    $("gameoverTitle").textContent = "No winner this time";
+    $("winnerName").innerHTML = topPlayer
+      ? `Nobody reached the <b>${target}</b> pt target.<br><span style="font-size:.7em; color:var(--muted);">Closest: ${topPlayer.avatar} ${escapeHtml(topPlayer.name)} with ${topPlayer.score} pts</span>`
+      : `Nobody reached the ${target} pt target.`;
   }
 });
 

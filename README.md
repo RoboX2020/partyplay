@@ -18,6 +18,8 @@ scores update on the host screen, and a winner is crowned at the end.
 
 ## 🎮 The games
 
+**Quick-reflex / quiz games**
+
 | Game | Emoji | What you do |
 |------|-------|-------------|
 | **Trivia Quiz** | 🧠 | Answer general-knowledge questions — fast + correct scores big |
@@ -26,7 +28,24 @@ scores update on the host screen, and a winner is crowned at the end.
 | **Reaction Rush** | ⚡ | Wait for GREEN, then tap as fast as you can |
 | **Tap Battle** | 👆 | Tap as many times as possible before time runs out |
 
-Scoring is cumulative across all rounds; correct + speedy answers earn the most.
+**Skill-based arcade games** (rendered live on each player's phone)
+
+| Game | Emoji | What you do |
+|------|-------|-------------|
+| **Street Racer** | 🏎️ | Steer your car and dodge oncoming traffic — one crash ends your run |
+| **Power Cricket** | 🏏 | Time your taps to bat; perfect timing smashes a SIX. 3 wickets = out |
+| **Sky Hopper** | 🐤 | Tap to fly through the gaps — one touch and it's over |
+
+Scoring is cumulative across all rounds; correct + speedy + skilful play earns
+the most.
+
+### 🎯 Win target
+
+Every game has a **qualifying target score**. To be crowned the winner you must
+finish **first _and_ cross the target** — otherwise the round ends with "no
+winner this time" (and the closest player is shown). This keeps wins earned, not
+just relative. The target is shown on the host screen and on each phone during
+play.
 
 ## 🚀 Run it
 

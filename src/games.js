@@ -71,6 +71,7 @@ const triviaGame = {
   mode: "quiz",
   rounds: 6,
   roundDuration: 15000,
+  winTarget: 3000,
   prepare(roundIndex, deck) {
     // deck: a per-game shuffled list of indices so questions don't repeat.
     const item = TRIVIA_BANK[deck[roundIndex % deck.length]];
@@ -104,6 +105,7 @@ const mathGame = {
   mode: "quiz",
   rounds: 7,
   roundDuration: 10000,
+  winTarget: 3200,
   prepare(roundIndex) {
     const ops = ["+", "-", "×"];
     const level = Math.min(roundIndex, 4);
@@ -169,6 +171,7 @@ const colorGame = {
   mode: "quiz",
   rounds: 7,
   roundDuration: 8000,
+  winTarget: 3000,
   prepare() {
     const pool = shuffle(COLORS);
     const wordColor = pool[0]; // the meaning of the word
@@ -210,6 +213,7 @@ const reactionGame = {
   mode: "reaction",
   rounds: 4,
   roundDuration: 6000, // window AFTER go signal to record taps
+  winTarget: 2400,
   prepare() {
     // Random delay before the GO signal (1.5s - 5s).
     return { goDelay: 1500 + rand(3500) };
@@ -243,6 +247,7 @@ const tapGame = {
   mode: "tap",
   rounds: 3,
   roundDuration: 6000,
+  winTarget: 1500,
   prepare() {
     return {};
   },
@@ -260,7 +265,65 @@ const tapGame = {
   },
 };
 
-export const GAMES = [triviaGame, mathGame, colorGame, reactionGame, tapGame];
+/* ------------------------------------------------------------------ */
+/* Arcade games — skill-based, rendered on a canvas on the player's    */
+/* phone. The server just streams + scores the raw in-game score.      */
+/* ------------------------------------------------------------------ */
+
+function arcadeScore(r, sub) {
+  const s = sub.score || 0;
+  return { correct: s > 0, points: s, score: s };
+}
+
+const raceGame = {
+  id: "race",
+  name: "Street Racer",
+  emoji: "🏎️",
+  color: "#ef4444",
+  description: "Steer your car and dodge the traffic. Survive longer for more points — one crash ends your run!",
+  mode: "arcade",
+  rounds: 3,
+  roundDuration: 26000,
+  winTarget: 600,
+  prepare() { return {}; },
+  hostView() { return {}; },
+  playerView() { return {}; },
+  score: arcadeScore,
+};
+
+const cricketGame = {
+  id: "cricket",
+  name: "Power Cricket",
+  emoji: "🏏",
+  color: "#16a34a",
+  description: "Time your shots! Tap as the ball reaches the bat — perfect timing smashes a SIX. Three wickets and you're out.",
+  mode: "arcade",
+  rounds: 3,
+  roundDuration: 28000,
+  winTarget: 120,
+  prepare() { return {}; },
+  hostView() { return {}; },
+  playerView() { return {}; },
+  score: arcadeScore,
+};
+
+const flappyGame = {
+  id: "flappy",
+  name: "Sky Hopper",
+  emoji: "🐤",
+  color: "#eab308",
+  description: "Tap to fly and weave through the gaps. One touch ends it — how many can you clear?",
+  mode: "arcade",
+  rounds: 3,
+  roundDuration: 30000,
+  winTarget: 18,
+  prepare() { return {}; },
+  hostView() { return {}; },
+  playerView() { return {}; },
+  score: arcadeScore,
+};
+
+export const GAMES = [triviaGame, mathGame, colorGame, reactionGame, tapGame, raceGame, cricketGame, flappyGame];
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;
@@ -275,6 +338,7 @@ export function gameCatalog() {
     description: g.description,
     mode: g.mode,
     rounds: g.rounds,
+    winTarget: g.winTarget,
   }));
 }
 
