@@ -143,6 +143,8 @@ h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
 }
 .net-banner.show { transform: translateY(0); }
 .net-banner.bad { background: var(--bad); color: #fff; }
+.net-banner.good { background: var(--good); color: #06231a; }
+.net-banner.good .spin { display: none; }
 .net-banner .spin {
   width: 14px; height: 14px; border: 2px solid rgba(0, 0, 0, 0.25);
   border-top-color: #1a1206; border-radius: 50%; animation: spin .8s linear infinite;

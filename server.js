@@ -415,6 +415,24 @@ io.on("connection", (socket) => {
     });
 
     io.to(room.code).emit("room:players", { players: publicPlayers(room) });
+
+    // Seamless resume: if a round is already in progress and this player
+    // hasn't answered it yet, drop them straight into it with the time that's
+    // left (quiz + arcade only; reaction/tap are too short to resume mid-round).
+    if (room.state === "playing" && room.game && !room.submissions.has(player.id)) {
+      const game = room.game;
+      const remaining = Math.max(3000, game.roundDuration - (Date.now() - room.roundStart));
+      if (game.mode === "quiz" || game.mode === "arcade") {
+        socket.emit("round:start", {
+          gameId: game.id,
+          mode: game.mode,
+          round: room.roundIndex + 1,
+          totalRounds: game.rounds,
+          duration: remaining,
+          view: game.mode === "quiz" ? game.playerView(room.roundDef) : {},
+        });
+      }
+    }
   });
 
   socket.on("player:submit", (payload) => {

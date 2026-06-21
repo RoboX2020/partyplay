@@ -1,4 +1,10 @@
-const socket = io();
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 600,
+  reconnectionDelayMax: 4000,
+  timeout: 20000,
+});
 
 const SHAPES = ["▲", "◆", "●", "■"];
 const $ = (id) => document.getElementById(id);
@@ -13,24 +19,33 @@ let timerInt = null;
 let currentMode = null;
 
 /* ---------------- Connection status ---------------- */
-function setNet(visible, msg, bad) {
+let wasDisconnected = false;
+function setNet(state, msg) {
+  // state: "hide" | "wait" | "bad" | "good"
   const b = $("netBanner");
-  b.classList.toggle("show", visible);
-  b.classList.toggle("bad", !!bad);
+  b.classList.toggle("show", state !== "hide");
+  b.classList.toggle("bad", state === "bad");
+  b.classList.toggle("good", state === "good");
   if (msg) $("netMsg").textContent = msg;
 }
 // Show "connecting" right away — important on cold starts (free hosting can
 // take ~30–60s to wake up), so the screen never looks silently broken.
-setNet(true, "Connecting to server…");
+setNet("wait", "Connecting to server…");
 
 socket.on("connect", () => {
-  setNet(false);
+  if (wasDisconnected) {
+    setNet("good", "Reconnected");
+    setTimeout(() => setNet("hide"), 1600);
+    wasDisconnected = false;
+  } else {
+    setNet("hide");
+  }
   const code = sessionStorage.getItem("pp_host_code");
   if (code) socket.emit("host:reattach", { code, origin: window.location.origin });
   else socket.emit("host:create", { origin: window.location.origin });
 });
-socket.on("disconnect", () => setNet(true, "Connection lost — reconnecting…", true));
-socket.io.on("reconnect_attempt", () => setNet(true, "Reconnecting…", true));
+socket.on("disconnect", () => { wasDisconnected = true; setNet("bad", "Connection lost — reconnecting…"); });
+socket.io.on("reconnect_attempt", (n) => { wasDisconnected = true; setNet("bad", `Reconnecting… (attempt ${n})`); });
 
 function applyRoomData(data) {
   $("roomCode").textContent = data.code;

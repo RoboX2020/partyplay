@@ -34,7 +34,10 @@ scores update on the host screen, and a winner is crowned at the end.
 |------|-------|-------------|
 | **Street Racer** | 🏎️ | Steer your car and dodge oncoming traffic — one crash ends your run |
 | **Power Cricket** | 🏏 | Time your taps to bat; perfect timing smashes a SIX. 3 wickets = out |
-| **Sky Hopper** | 🐤 | Tap to fly through the gaps — one touch and it's over |
+| **Sky Hopper** | 🐤 | Tap to fly through big, forgiving gaps — see how far you go |
+| **Gravity Run** | 🌀 | Tap to flip gravity between floor and ceiling and dodge the blocks |
+| **Stack Tower** | 🧱 | Tap to drop each moving block; stack them as high as you can |
+| **Brick Breaker** | 🧊 | Slide the paddle to bounce the ball and smash every brick |
 
 Scoring is cumulative across all rounds; correct + speedy + skilful play earns
 the most.

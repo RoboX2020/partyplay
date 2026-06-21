@@ -312,18 +312,69 @@ const flappyGame = {
   name: "Sky Hopper",
   emoji: "🐤",
   color: "#eab308",
-  description: "Tap to fly and weave through the gaps. One touch ends it — how many can you clear?",
+  description: "Tap to fly through the big gaps. Gentle and forgiving — how far can you go?",
   mode: "arcade",
   rounds: 3,
   roundDuration: 30000,
-  winTarget: 18,
+  winTarget: 12,
   prepare() { return {}; },
   hostView() { return {}; },
   playerView() { return {}; },
   score: arcadeScore,
 };
 
-export const GAMES = [triviaGame, mathGame, colorGame, reactionGame, tapGame, raceGame, cricketGame, flappyGame];
+const gravityGame = {
+  id: "gravity",
+  name: "Gravity Run",
+  emoji: "🌀",
+  color: "#8b5cf6",
+  description: "Tap to flip gravity and switch between floor and ceiling. Dodge the blocks as you sprint!",
+  mode: "arcade",
+  rounds: 3,
+  roundDuration: 30000,
+  winTarget: 30,
+  prepare() { return {}; },
+  hostView() { return {}; },
+  playerView() { return {}; },
+  score: arcadeScore,
+};
+
+const stackGame = {
+  id: "stack",
+  name: "Stack Tower",
+  emoji: "🧱",
+  color: "#0891b2",
+  description: "Tap to drop each moving block. Stack them as high as you can — misalign too far and it topples!",
+  mode: "arcade",
+  rounds: 3,
+  roundDuration: 40000,
+  winTarget: 30,
+  prepare() { return {}; },
+  hostView() { return {}; },
+  playerView() { return {}; },
+  score: arcadeScore,
+};
+
+const brickGame = {
+  id: "brick",
+  name: "Brick Breaker",
+  emoji: "🧊",
+  color: "#f97316",
+  description: "Slide the paddle to bounce the ball and smash every brick. Don't let it slip past you!",
+  mode: "arcade",
+  rounds: 3,
+  roundDuration: 34000,
+  winTarget: 45,
+  prepare() { return {}; },
+  hostView() { return {}; },
+  playerView() { return {}; },
+  score: arcadeScore,
+};
+
+export const GAMES = [
+  triviaGame, mathGame, colorGame, reactionGame, tapGame,
+  raceGame, cricketGame, flappyGame, gravityGame, stackGame, brickGame,
+];
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;

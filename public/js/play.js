@@ -1,4 +1,10 @@
-const socket = io();
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 600,
+  reconnectionDelayMax: 4000,
+  timeout: 20000,
+});
 const $ = (id) => document.getElementById(id);
 const sections = ["join", "wait", "game", "pGameover"];
 function show(id) {
@@ -10,13 +16,16 @@ let roundState = null;
 const stored = JSON.parse(sessionStorage.getItem("pp_player") || "null");
 
 /* ---------------- Connection status ---------------- */
-function setNet(visible, msg, bad) {
+let wasDisconnected = false;
+function setNet(state, msg) {
+  // state: "hide" | "wait" | "bad" | "good"
   const b = $("netBanner");
-  b.classList.toggle("show", visible);
-  b.classList.toggle("bad", !!bad);
+  b.classList.toggle("show", state !== "hide");
+  b.classList.toggle("bad", state === "bad");
+  b.classList.toggle("good", state === "good");
   if (msg) $("netMsg").textContent = msg;
 }
-setNet(true, "Connecting…");
+setNet("wait", "Connecting…");
 
 // Prefill room code from the QR link (?room=ABCD), or a stored session.
 const params = new URLSearchParams(location.search);
@@ -41,14 +50,20 @@ $("joinForm").addEventListener("submit", (e) => {
 
 // (Re)connect support: rejoin automatically after a drop or page refresh.
 socket.on("connect", () => {
-  setNet(false);
+  if (wasDisconnected && me) {
+    setNet("good", "Reconnected");
+    setTimeout(() => setNet("hide"), 1600);
+  } else {
+    setNet("hide");
+  }
+  wasDisconnected = false;
   const s = me ? { code: me.code, name: me.name, playerId: me.playerId } : stored;
   if (s && s.code && s.playerId) socket.emit("player:join", s);
 });
-socket.on("disconnect", () => setNet(true, "Connection lost — reconnecting…", true));
-socket.io.on("reconnect_attempt", () => setNet(true, "Reconnecting…", true));
-socket.on("host:paused", ({ message }) => setNet(true, message || "Host reconnecting…", true));
-socket.on("host:resumed", () => setNet(false));
+socket.on("disconnect", () => { wasDisconnected = true; setNet("bad", "Connection lost — reconnecting…"); });
+socket.io.on("reconnect_attempt", (n) => { wasDisconnected = true; setNet("bad", `Reconnecting… (attempt ${n})`); });
+socket.on("host:paused", ({ message }) => setNet("bad", message || "Host reconnecting…"));
+socket.on("host:resumed", () => { setNet("good", "Host reconnected"); setTimeout(() => setNet("hide"), 1500); });
 
 socket.on("player:joinError", ({ message }) => {
   $("joinBtn").disabled = false;
