@@ -393,8 +393,4 @@ export function gameCatalog() {
   }));
 }
 
-export function arcadeCatalog() {
-  return gameCatalog().filter((g) => g.mode === "arcade");
-}
-
 export { shuffle };

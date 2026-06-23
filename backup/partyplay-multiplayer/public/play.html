@@ -14,6 +14,7 @@
   <div class="net-banner" id="netBanner"><span class="spin"></span><span id="netMsg">Connecting…</span></div>
   <canvas id="confetti"></canvas>
 
+  <!-- ============ JOIN ============ -->
   <section id="join" class="p-wrap" style="justify-content:center; align-items:center; gap:22px;">
     <h1 class="logo" style="font-size:2.2rem;"><span class="mark">P</span>Party<span class="dot">Play</span></h1>
     <form class="join-form" id="joinForm">
@@ -26,50 +27,39 @@
         <input id="nameInput" maxlength="14" autocomplete="off" placeholder="e.g. Rocket" />
       </div>
       <div class="err" id="joinErr"></div>
-      <button type="submit" class="btn big" id="joinBtn">Join queue</button>
+      <button type="submit" class="btn big" id="joinBtn">Join game</button>
     </form>
   </section>
 
-  <section id="queue" class="p-wrap hidden">
+  <!-- ============ WAITING ============ -->
+  <section id="wait" class="p-wrap hidden">
     <div class="p-head">
       <div class="me"><span class="av" id="meAv"></span><span id="meName"></span></div>
-      <div class="score">#<span id="queuePos">1</span> in line</div>
+      <div class="score">Room <span id="meCode"></span></div>
     </div>
     <div class="waiting">
       <div class="av-big" id="waitAv"></div>
-      <h2 id="queueTitle">You're in the queue</h2>
-      <p class="tag" id="queueMsg"><span class="dots">Waiting for your turn</span></p>
-      <div class="rank-pill" id="nowPlaying" style="margin-top:16px; display:none;"></div>
+      <h2>You're in</h2>
+      <p class="tag"><span class="dots">Waiting for the host to start</span></p>
     </div>
   </section>
 
-  <section id="playing" class="p-wrap hidden">
+  <!-- ============ GAMEPLAY ============ -->
+  <section id="game" class="p-wrap hidden">
     <div class="p-head">
-      <div class="me"><span class="av" id="playAv"></span><span id="playName"></span></div>
-      <div class="score"><span id="playScore">0</span> pts · LIVE</div>
+      <div class="me"><span class="av" id="gAv"></span><span id="gName"></span></div>
+      <div class="score"><span id="gScore">0</span> pts</div>
     </div>
-    <div class="live-badge">📺 On the big screen</div>
     <div class="p-stage" id="pStage"></div>
   </section>
 
-  <section id="spectate" class="p-wrap hidden">
-    <div class="p-head">
-      <div class="me"><span class="av" id="specAv"></span><span id="specName"></span></div>
-      <div class="score">#<span id="specPos">2</span> in line</div>
-    </div>
-    <div class="waiting">
-      <div class="av-big" id="specPlayAv"></div>
-      <h2 id="specTitle">Watch the big screen!</h2>
-      <p class="tag" id="specMsg">Someone else is playing right now</p>
-    </div>
-  </section>
-
-  <section id="turnOver" class="p-wrap hidden">
+  <!-- ============ GAME OVER ============ -->
+  <section id="pGameover" class="p-wrap hidden">
     <div class="waiting">
       <div class="av-big" id="overAv"></div>
-      <h2 id="overTitle">Your turn is over</h2>
-      <div class="big-msg" id="overScore" style="font-size:2.4rem;"></div>
-      <p class="tag" id="overMsg"></p>
+      <h2 id="overTitle"></h2>
+      <div class="big-msg" id="overRank" style="font-size:2rem;"></div>
+      <p class="tag" id="overScore"></p>
     </div>
   </section>
 

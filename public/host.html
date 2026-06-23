@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PartyPlay — Host</title>
+  <title>PartyPlay — Live Showcase Host</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -15,93 +15,91 @@
   <canvas id="confetti"></canvas>
   <div class="wrap">
 
-    <!-- ============ LOBBY ============ -->
+    <!-- LOBBY -->
     <section id="lobby">
       <div class="host-top">
-        <div class="logo"><span class="mark">P</span>Party<span class="dot">Play</span></div>
+        <div class="logo"><span class="mark">P</span>Party<span class="dot">Play</span> <span class="mode-tag">Live</span></div>
         <div class="codebox">
           <span class="label">Room code</span>
           <span class="code" id="roomCode">····</span>
         </div>
-        <div class="pill"><b id="playerCount">0</b>&nbsp;players</div>
+        <div class="pill"><b id="queueCount">0</b>&nbsp;in line</div>
       </div>
 
       <div class="lobby-grid">
         <div class="card qr-card">
-          <div class="section-title">Scan to join</div>
+          <div class="section-title">Scan to join the queue</div>
           <div class="qr-frame"><img id="qr" alt="Join QR code" /></div>
-          <div class="scan-hint">Point your phone camera at the code, or open</div>
+          <div class="scan-hint">First in line plays on their phone — everyone watches here</div>
           <div class="joinurl" id="joinUrl"></div>
         </div>
 
         <div>
           <div class="card" style="margin-bottom:20px;">
             <div class="players-head">
-              <h3>Players in the room</h3>
-              <span class="pill"><b id="playerCount2">0</b>&nbsp;joined</span>
+              <h3>Queue</h3>
+              <span class="pill" id="sessionPill">Lobby</span>
             </div>
-            <div class="players" id="players">
-              <div class="empty-hint">Waiting for players to scan the QR code…</div>
+            <div class="queue-list" id="queueList">
+              <div class="empty-hint">Waiting for someone to scan…</div>
             </div>
           </div>
 
           <div class="card">
             <div class="players-head">
-              <h3>Choose a game</h3>
-              <button class="btn big" id="startBtn" disabled>Start game</button>
+              <h3>Pick the game</h3>
+              <button class="btn big" id="openBtn" disabled>Open the floor</button>
             </div>
             <div class="game-picker" id="gamePicker"></div>
+            <p class="tag" style="margin-top:14px;">When the floor is open, whoever joined first plays. Their screen is projected live below.</p>
+          </div>
+
+          <div class="card" style="margin-top:20px;">
+            <div class="players-head"><h3>Best scores tonight</h3></div>
+            <div class="leaderboard" id="hallLobby"></div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ============ INTRO SPLASH ============ -->
-    <section id="intro" class="hidden">
-      <div class="center-grow" style="min-height:88vh;">
-        <div id="introEmoji" style="font-size:4.5rem;"></div>
-        <h1 id="introName" style="font-size:clamp(2rem,6vw,3.4rem);"></h1>
-        <p class="tag" id="introDesc"></p>
-        <div class="big-msg" id="introCountdown" style="margin-top:10px;"></div>
-      </div>
-    </section>
-
-    <!-- ============ GAMEPLAY ============ -->
-    <section id="play" class="hidden">
-      <div class="stage">
-        <div class="stage-head">
-          <div class="round-label" id="roundLabel">Round 1</div>
-          <div class="pill" id="gameNamePill"></div>
-          <div class="timer-ring" id="timer">15</div>
+    <!-- LIVE PROJECTION -->
+    <section id="live" class="hidden">
+      <div class="live-stage">
+        <div class="live-head">
+          <div class="live-player">
+            <span class="av" id="liveAv"></span>
+            <div>
+              <div class="live-name" id="liveName">Player</div>
+              <div class="tag" id="liveGame">Playing…</div>
+            </div>
+          </div>
+          <div class="live-score"><span id="liveScore">0</span> pts</div>
+          <div class="timer-ring" id="liveTimer">30</div>
         </div>
-        <div class="timerbar"><i id="timerFill"></i></div>
-        <div id="stageContent" class="center-grow"></div>
-        <div class="answers-count" id="answersCount"></div>
-      </div>
-    </section>
-
-    <!-- ============ ROUND RESULT ============ -->
-    <section id="result" class="hidden">
-      <div class="stage">
-        <div class="stage-head">
-          <div class="round-label" id="resultRoundLabel"></div>
-          <div class="pill">Leaderboard</div>
-          <div></div>
+        <div class="timerbar"><i id="liveTimerFill"></i></div>
+        <div class="projection-wrap">
+          <img id="projection" alt="Live game feed" class="projection" />
+          <div class="projection-idle" id="projectionIdle">
+            <div class="big-msg">Waiting for the next player…</div>
+            <p class="tag">Scan the QR to join the queue</p>
+          </div>
         </div>
-        <div id="resultReveal" style="text-align:center; margin-bottom:18px;"></div>
-        <div class="leaderboard" id="leaderboard"></div>
+        <div class="live-foot">
+          <div class="queue-mini" id="queueMini"></div>
+          <button class="btn ghost" id="skipBtn">Skip turn</button>
+          <button class="btn ghost" id="closeBtn">Close floor</button>
+        </div>
       </div>
     </section>
 
-    <!-- ============ GAME OVER ============ -->
-    <section id="gameover" class="hidden">
+    <!-- TURN RESULT -->
+    <section id="turnResult" class="hidden">
       <div class="center-grow" style="min-height:88vh;">
-        <div class="crown" id="gameoverCrown">🏆</div>
-        <h1 id="gameoverTitle" style="font-size:clamp(1.8rem,5vw,2.6rem);">We have a winner</h1>
-        <div class="big-msg" id="winnerName" style="font-size:clamp(1.6rem,4.5vw,2.4rem);"></div>
-        <div class="podium" id="podium"></div>
-        <div class="leaderboard" id="finalBoard" style="max-width:520px;"></div>
-        <button class="btn big" id="playAgainBtn">Play again</button>
+        <div class="crown" id="turnEmoji">🎮</div>
+        <h1 id="turnTitle" style="font-size:clamp(1.8rem,5vw,2.6rem);">Nice run!</h1>
+        <div class="big-msg" id="turnScoreLine"></div>
+        <p class="tag" id="turnNext"></p>
+        <div class="leaderboard" id="hallTurn" style="max-width:520px; margin-top:24px;"></div>
       </div>
     </section>
 
