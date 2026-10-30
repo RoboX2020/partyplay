@@ -1,3 +1,19 @@
+// ============================================================================
+// arcade.js - the six mini-games that run ON THE PLAYER'S PHONE.
+//
+// Each game is a small self-contained canvas game with the same shape:
+//   - listen for taps/swipes on the phone
+//   - run a frame loop (requestAnimationFrame) that moves the world
+//   - call opts.onScore(n) as the score climbs
+//   - call opts.onEnd(score) when the run is over (crash, timeout, miss)
+// While you play, your phone also sends video frames of the canvas to the
+// server so the big screen can show your run live (wired up in play.js).
+//
+// THE GAMES: Street Racer (steer between traffic), Power Cricket (tap at
+// the perfect moment), Sky Hopper (tap to flap through gaps), Gravity Run
+// (tap to flip gravity), Stack Tower (drop blocks to build a tower),
+// Brick Breaker (move the paddle, smash bricks).
+// ============================================================================
 /* ================================================================
    PartyPlay arcade games — canvas mini-games for the player phone.
 
@@ -12,6 +28,7 @@
 (function () {
   const Arcade = {};
 
+  // Get a canvas ready: size it to its box, scaled for sharp rendering on phone screens.
   function setup(canvas) {
     const rect = canvas.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -24,6 +41,7 @@
     return { ctx, w, h, dpr };
   }
 
+  // Draw a rectangle with rounded corners (the canvas API has no built-in for it in older browsers).
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -37,6 +55,7 @@
   /* ============================================================ */
   /* Street Racer — dodge oncoming traffic                         */
   /* ============================================================ */
+  // STREET RACER: drag left/right to steer; traffic cars keep coming; one crash ends the run. Score = distance survived.
   function streetRacer(canvas, opts) {
     const { ctx, w, h } = setup(canvas);
     let raf, ended = false;
@@ -176,6 +195,7 @@
   /* ============================================================ */
   /* Power Cricket — timing-based batting                          */
   /* ============================================================ */
+  // POWER CRICKET: a marker swings back and forth; tap when it is over the stumps for the best hit. Score = timing quality per ball.
   function powerCricket(canvas, opts) {
     const { ctx, w, h } = setup(canvas);
     let raf, ended = false;
@@ -299,6 +319,7 @@
   /* ============================================================ */
   /* Sky Hopper — flappy-style                                     */
   /* ============================================================ */
+  // SKY HOPPER (flappy-style): tap to flap; fly through the gaps between pipes; touching anything ends the run.
   function skyHopper(canvas, opts) {
     const { ctx, w, h } = setup(canvas);
     let raf, ended = false;
@@ -405,6 +426,7 @@
   /* ============================================================ */
   /* Gravity Run — flip gravity to dodge blocks                    */
   /* ============================================================ */
+  // GRAVITY RUN: the runner auto-runs; tap to flip between floor and ceiling to dodge blocks.
   function gravityRun(canvas, opts) {
     const { ctx, w, h } = setup(canvas);
     let raf, ended = false;
@@ -513,6 +535,7 @@
   /* ============================================================ */
   /* Stack Tower — drop moving blocks to build a tower             */
   /* ============================================================ */
+  // STACK TOWER: a block slides side to side; tap to drop it onto the tower. Miss the stack and the run ends; tower grows for points.
   function stackTower(canvas, opts) {
     const { ctx, w, h } = setup(canvas);
     let raf, ended = false;
@@ -604,6 +627,7 @@
   /* ============================================================ */
   /* Brick Breaker — paddle + ball + bricks                        */
   /* ============================================================ */
+  // BRICK BREAKER: drag to move the paddle, bounce the ball, smash all the bricks.
   function brickBreaker(canvas, opts) {
     const { ctx, w, h } = setup(canvas);
     let raf, ended = false;
@@ -707,6 +731,7 @@
     return { stop: end };
   }
 
+  // Draw the big centered title/score card used when a run ends.
   function banner(ctx, w, h, title, score) {
     ctx.fillStyle = "rgba(0,0,0,.55)";
     ctx.fillRect(0, h / 2 - 60, w, 120);

@@ -1,3 +1,10 @@
+// ============================================================================
+// NEW HERE? This file defines the quiz-style games (trivia, math, reaction
+// taps) as data + scoring rules for the server (server.js). The four
+// reflex arcade games live separately on the phone side
+// (public/js/arcade.js). The comment below explains the shared interface
+// every game here follows.
+// ============================================================================
 // Game engine definitions for PartyPlay.
 //
 // Each game exposes a common interface used by the room orchestrator in

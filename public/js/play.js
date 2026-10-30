@@ -1,3 +1,13 @@
+// ============================================================================
+// play.js - the PLAYER'S PHONE: join the queue, wait your turn, play.
+//
+// Join with the room code (usually pre-filled from the QR link). Your phone
+// shows your place in line and who is playing. When the server says
+// turn:start, the arcade game loads here; while you play, this page grabs
+// snapshots of the game canvas and streams them (player:frame) to the
+// server so the big screen can watch live. Your player id is remembered in
+// localStorage so a refresh does not lose your spot.
+// ============================================================================
 const socket = io({
   reconnection: true,
   reconnectionAttempts: Infinity,

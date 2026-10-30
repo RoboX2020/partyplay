@@ -1,3 +1,5 @@
+// Tiny dependency-free confetti burst, fired on the big screen when a run
+// ends (host.js calls window.Confetti.burst()).
 // Tiny dependency-free confetti burst.
 (function () {
   const canvas = document.getElementById("confetti");

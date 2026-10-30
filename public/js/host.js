@@ -1,3 +1,12 @@
+// ============================================================================
+// host.js - the BIG SCREEN: lobby, QR code, queue, live gameplay, results.
+//
+// This runs on the TV/projector. It asks the server for a room (and
+// re-attaches after a refresh using a saved room code), shows the QR code
+// people scan to join, lets the host pick a game and "open the floor",
+// then plays the active player's phone video feed live as it streams in
+// (live:frame messages), with scores and a hall of fame between turns.
+// ============================================================================
 const socket = io({
   reconnection: true,
   reconnectionAttempts: Infinity,
