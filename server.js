@@ -171,12 +171,17 @@ function beginTurn(room, playerId) {
     player: publicPlayer(player),
   };
 
+  // Tell each audience what they need, in their own role's message:
+  //   the host's big screen goes live with the game (live:start),
+  //   every connected device hears who's up (turn:announce),
   io.to(room.hostRoom).emit("live:start", turnPayload);
   io.to(room.code).emit("turn:announce", {
     player: publicPlayer(player),
     game: turnPayload.game,
   });
 
+  //   and the active player's own phone gets the full start package
+  //   (turn:start) - this is what launches the game on their screen.
   const sock = io.sockets.sockets.get(player.socketId);
   if (sock) sock.emit("turn:start", turnPayload);
 
@@ -189,6 +194,9 @@ function beginTurn(room, playerId) {
 
   broadcastQueue(room);
 
+  // Safety net: end the turn when the round duration expires, PLUS a 2-second
+  // grace for network lag between the phone's own timer and the server's. The
+  // phone normally reports its score first; this only fires if it never does.
   room.timers.push(
     setTimeout(() => endTurn(room, room.turnScore, "time"), game.roundDuration + 2000)
   );
@@ -230,6 +238,9 @@ function endTurn(room, score, reason = "done") {
 
   broadcastQueue(room);
 
+  // Intermission: leave the result on screen for 3.5 s, then automatically
+  // bring up the next queued player. If nobody is left, put the big screen back
+  // to its idle hall-of-fame view.
   room.timers.push(setTimeout(() => {
     room.state = room.sessionOpen ? "open" : "lobby";
     maybeStartTurn(room);

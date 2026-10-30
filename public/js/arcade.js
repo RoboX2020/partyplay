@@ -117,16 +117,23 @@
 
     let elapsedMs = 0;
     function frame(now) {
+      // dt = milliseconds since the last frame, capped at 48. The cap matters
+      // when the phone's tab is backgrounded and frames pause: without it the
+      // next frame would see dt of several seconds and teleport every enemy.
       const dt = Math.min(48, now - last);
       last = now;
       const elapsed = now - start;
       elapsedMs = elapsed;
+      // Difficulty ramp: base speed 0.28 px/ms, growing by up to +0.42 over the
+      // first ~26 seconds, so the road gets faster the longer you survive.
       speed = 0.28 + elapsed / 26000 * 0.42; // ramps up
 
-      // Move car toward target
+      // Ease the car towards the finger: close 25% of the gap each frame
+      // (smooth chase instead of snapping to the pointer).
       car.x += (targetX - car.x) * 0.25;
 
-      // Spawn
+      // Spawn enemies on a shrinking interval: starts at 900 ms, tightens as
+      // time passes, never faster than 420 ms apart.
       spawnTimer -= dt;
       const interval = Math.max(420, 900 - elapsed / 40);
       if (spawnTimer <= 0) { spawn(); spawnTimer = interval; }
@@ -134,14 +141,19 @@
       // Update enemies
       for (const en of enemies) {
         en.y += speed * dt;
+        // Passed the player's row without contact: count it as dodged (once).
         if (!en.scored && en.y > carY + car.h) { en.scored = true; dodged++; }
-        // collision
+        // Collision test: axis-aligned rectangle overlap (the standard "boxes
+        // intersect" check), with 6 px shaved off every side as forgiveness -
+        // pixel-perfect collisions feel unfair on a small touchscreen.
         if (en.x < car.x + car.w - 6 && en.x + en.w > car.x + 6 && en.y < carY + car.h - 6 && en.y + en.h > carY + 6) {
           score = dodged * 25 + Math.floor(dist / 100);
           drawScene(true);
           return end();
         }
       }
+      // Enemies that drove off the bottom are gone; they queue oldest-first so
+      // a shift() off the front is enough (no searching).
       while (enemies.length && enemies[0].y > h) enemies.shift();
 
       dist += speed * dt;
@@ -215,6 +227,8 @@
       ball.active = true; ball.hit = false; ball.judged = false;
     }
 
+    // Judge one swing: how far was the ball from the bat line at tap time?
+    // Tighter timing = bigger runs; a really late/early swing loses a wicket.
     function judge() {
       if (!ball.active || ball.judged) return;
       const diff = Math.abs(ball.y - batLineY);
